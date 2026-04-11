@@ -62,7 +62,7 @@ jobs:
           cat > capacitor.config.json << 'CAPEOF'
           {
             "appId": "xyz.scooom.pv",
-            "appName": "PokéVoid Offline",
+            "appName": "PokeVoid Offline",
             "webDir": "dist",
             "ios": {
               "contentInset": "never",
