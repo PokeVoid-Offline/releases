@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-const filePath = 'pokerogue-src/src/ui/handlers/title-ui-handler.ts';
+const filePath = 'pokevoid-src/package.json';
 let content = fs.readFileSync(filePath, 'utf8');
 
 const anchor = `		"remove-pokesave": "if exist .\\dist\\pokesave rmdir /s /q .\\dist\\pokesave",`;
