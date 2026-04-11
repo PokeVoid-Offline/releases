@@ -3,7 +3,7 @@ set -e
 
 SCRIPT_DIR="$(dirname "$0")"
 PATCHES_DIR="$SCRIPT_DIR/../patches"
-TARGET_DIR="pokerogue-src"
+TARGET_DIR="pokevoid-src"
 
 apply_patch() {
   local file="$1"
@@ -32,23 +32,8 @@ apply_submodule_patch() {
 # Add patch files here:
 # apply_patch "01-fix-something.patch"
 
-# Patch to apply full unlock button
-apply_patch "add-import-data-from-url.js"
-apply_patch "inject-unlock-all.js"
+# CRITICAL: Remove Capacitor Updater for offline builds
+apply_patch "remove-capacitor-updater.js"
 
-# patch to implement PKR 7077
-apply_patch "noLearnMove.patch"
-
-# Patch to implement PKR 7222
-apply_patch "iosImport.patch"
-
-# Patch to implement PKR 7223
-apply_patch "noZoom.patch"
-
-# Patch in version string for offline client
-apply_patch "offlineBanner.patch"
-
-# Patch out logged in as and online count
-apply_patch "update-title-labels.js"
 
 echo "All patches applied successfully."

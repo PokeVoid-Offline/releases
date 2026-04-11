@@ -31,8 +31,8 @@ jobs:
           VERSION=0.$(node -p "require('./pokevoid-src/package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-#      - name: Apply patches
-#        run: bash ${{ github.workspace }}/scripts/apply-patches.sh
+      - name: Apply patches
+        run: bash ${{ github.workspace }}/scripts/apply-patches.sh
 
 #      - name: Inject build number into banner
 #        run: |
