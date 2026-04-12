@@ -56,7 +56,6 @@ jobs:
 
   # Build iOS IPA
   build-ios:
-    if: false
     needs: prepare
     runs-on: macos-latest
 
@@ -229,7 +228,6 @@ jobs:
           sed -i "s/versionName \"1.0\"/versionName \"$VERSION_NAME\"/" android/app/build.gradle
 
       - name: Configure Android app settings
-        if: false
         working-directory: pokevoid-src
         run: |
           # Set screen orientation to landscape
@@ -237,7 +235,7 @@ jobs:
           
           # Add landscape orientation if not present
           if ! grep -q "android:screenOrientation" android/app/src/main/AndroidManifest.xml; then
-            sed -i 's/<activity/\n            android:screenOrientation="landscape"\n            <activity/' android/app/src/main/AndroidManifest.xml
+            sed -i 's/<activity/<activity\n            android:screenOrientation="landscape"/' android/app/src/main/AndroidManifest.xml
           fi
           
           # Set fullscreen
@@ -286,7 +284,6 @@ jobs:
 
   # Create release with both IPA and APK
   release:
-    if: false
     needs: [prepare, build-ios, build-android]
     runs-on: ubuntu-latest
 
