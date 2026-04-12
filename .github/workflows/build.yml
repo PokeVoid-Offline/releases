@@ -239,7 +239,7 @@ jobs:
           fi
           
           # Set fullscreen
-          sed -i '/<activity/a\            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"' android/app/src/main/AndroidManifest.xml
+          sed -i 's|@style/AppTheme.NoActionBarLaunch|@android:style/Theme.Black.NoTitleBar.Fullscreen|g' android/app/src/main/AndroidManifest.xml
 
       - name: Copy app icon
         run: |
@@ -269,7 +269,7 @@ jobs:
 
       - name: Build Android APK (unsigned)
         working-directory: pokevoid-src/android
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew assembleRelease
 
       - name: Rename APK
         run: |
