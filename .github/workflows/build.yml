@@ -56,6 +56,7 @@ jobs:
 
   # Build iOS IPA
   build-ios:
+    if: false
     needs: prepare
     runs-on: macos-latest
 
@@ -262,6 +263,11 @@ jobs:
           convert appIcon.png -resize 144x144 pokevoid-src/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
           convert appIcon.png -resize 192x192 pokevoid-src/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
 
+
+      - name: Build Android APK (unsigned)
+        working-directory: pokevoid-src/android
+        run: cat /home/runner/work/iOS/iOS/pokevoid-src/android/app/src/main/AndroidManifest.xml
+
       - name: Build Android APK (unsigned)
         working-directory: pokevoid-src/android
         run: ./gradlew assembleRelease --stacktrace
@@ -279,6 +285,7 @@ jobs:
 
   # Create release with both IPA and APK
   release:
+    if: false
     needs: [prepare, build-ios, build-android]
     runs-on: ubuntu-latest
 
