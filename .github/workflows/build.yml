@@ -274,6 +274,10 @@ jobs:
 
       - name: Sign APK
         run: |
+          # Find zipalign
+          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name zipalign | head -1)
+          echo "Using zipalign: $ZIPALIGN"
+          
           # Generate a keystore for signing
           keytool -genkeypair -v \
             -keystore release.keystore \
@@ -286,7 +290,7 @@ jobs:
             -dname "CN=PokeVoid, OU=Game, O=PokeVoid, L=City, S=State, C=US"
           
           # Zipalign first
-          $ANDROID_HOME/build-tools/*/zipalign -v -p 4 \
+          $ZIPALIGN -p -v 4 \
             pokevoid-src/android/app/build/outputs/apk/release/app-release-unsigned.apk \
             app-aligned.apk
           
@@ -300,6 +304,7 @@ jobs:
           
           # Rename to final output
           mv app-aligned.apk PokeVoidOffline.apk
+ 
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
