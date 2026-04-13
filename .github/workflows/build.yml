@@ -292,8 +292,8 @@ jobs:
             pokevoid-src/android/app/build/outputs/apk/release/app-release-unsigned.apk \
             release
           
-          # Zipalign the APK
-          $ANDROID_HOME/build-tools/*/zipalign -v 4 \
+          # Zipalign the signed APK
+          $ANDROID_HOME/build-tools/*/zipalign -f -v 4 \
             pokevoid-src/android/app/build/outputs/apk/release/app-release-unsigned.apk \
             PokeVoidOffline.apk
 
