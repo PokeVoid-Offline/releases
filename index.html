@@ -348,6 +348,9 @@
           <a id="btn-mac" class="btn-download btn-mac loading" href="#">
             <i class="fab fa-apple"></i> macOS
           </a>
+          <a id="btn-mac-arm" class="btn-download btn-mac loading" href="#">
+            <i class="fab fa-apple"></i> macOS arm64
+          </a>
           <a id="btn-lin" class="btn-download btn-lin loading" href="#">
             <i class="fab fa-linux"></i> Linux
           </a>
@@ -467,7 +470,8 @@
         const apk = data.assets.find(a => a.name.endsWith('.apk'));
         const ipa = data.assets.find(a => a.name.endsWith('.ipa'));
         const win = data.assets.find(a => a.name.endsWith('.exe'));
-        const mac = data.assets.find(a => a.name.endsWith('.dmg'));
+        const mac = data.assets.find(a => a.name.endsWith('Mac.dmg'));
+        const macArm64 = data.assets.find(a => a.name.endsWith('arm64.dmg'));
         const lin = data.assets.find(a => a.name.endsWith('.AppImage'));
 
         const meta = document.getElementById('release-meta');
@@ -488,6 +492,7 @@
         wireBtn('btn-ipa', ipa);
         wireBtn('btn-win', win);
         wireBtn('btn-mac', mac);
+        wireBtn('btn-mac-arm', macArm64);
         wireBtn('btn-lin', lin);
 
       } catch (e) {
