@@ -289,6 +289,11 @@ jobs:
             platform: mac
             artifact: PokeVoidOffline-Mac
             output: PokeVoidOffline-Mac.dmg
+          - os: macos-latest
+            platform: mac
+            artifact: PokeVoidOffline-Mac-arm64
+            output: PokeVoidOffline-Mac-arm64.dmg
+            
 #          - os: ubuntu-latest
 #            platform: linux
 #            artifact: PokeVoidOffline-Linux
@@ -439,11 +444,17 @@ jobs:
         shell: bash
         run: cp pokevoid-src/electron-dist/*.exe PokeVoidOffline-Windows.exe
 
-      - name: Copy output (macOS)
+      - name: Copy output (macOS x64)
         if: matrix.os == 'macos-latest'
+        if: matrix.artifact == "PokeVoidOffline-Mac.dmg"
         run: |
-          find . -name '*.dmg'
-          cp pokevoid-src/electron-dist/*.dmg PokeVoidOffline-Mac.dmg
+          cp pokevoid-src/electron-dist/*.${{ github.run_number }}.dmg PokeVoidOffline-Mac.dmg
+
+      - name: Copy output (macOS arm64)
+        if: matrix.os == 'macos-latest'
+        if: matrix.artifact == "PokeVoidOffline-Mac-arm64.dmg"
+        run: |
+          cp pokevoid-src/electron-dist/*-arm64.dmg PokeVoidOffline-Mac-arm64.dmg
 
       - name: Copy output (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -481,10 +492,16 @@ jobs:
           name: PokeVoidOffline-Windows
           path: ./
 
-      - name: Download macOS build
+      - name: Download macOS build x64
         uses: actions/download-artifact@v4
         with:
           name: PokeVoidOffline-Mac
+          path: ./
+
+      - name: Download macOS build arm64
+        uses: actions/download-artifact@v4
+        with:
+          name: PokeVoidOffline-Mac-arm64
           path: ./
 
       - name: Download Linux build
@@ -500,11 +517,13 @@ jobs:
           APK_SIZE=$(wc -c < PokeVoidOffline.apk | numfmt --to=iec-i --suffix=B)
           WIN_SIZE=$(wc -c < PokeVoidOffline-Windows.exe | numfmt --to=iec-i --suffix=B)
           MAC_SIZE=$(wc -c < PokeVoidOffline-Mac.dmg | numfmt --to=iec-i --suffix=B)
+          MAC_ARM64_SIZE=$(wc -c < PokeVoidOffline-Mac-arm64.dmg | numfmt --to=iec-i --suffix=B)
           LIN_SIZE=$(wc -c < PokeVoidOffline-Linux.AppImage | numfmt --to=iec-i --suffix=B)
           echo "ipa_size=$IPA_SIZE" >> $GITHUB_OUTPUT
           echo "apk_size=$APK_SIZE" >> $GITHUB_OUTPUT
           echo "win_size=$WIN_SIZE" >> $GITHUB_OUTPUT
           echo "mac_size=$MAC_SIZE" >> $GITHUB_OUTPUT
+          echo "mac_arm64_size=$MAC_ARM64_SIZE" >> $GITHUB_OUTPUT
           echo "lin_size=$LIN_SIZE" >> $GITHUB_OUTPUT
 
       - name: Create Release
@@ -520,6 +539,7 @@ jobs:
             - **Android (APK)**: `PokeVoidOffline.apk` (${{ steps.file_sizes.outputs.apk_size }})
             - **Windows**: `PokeVoidOffline-Windows.exe` (${{ steps.file_sizes.outputs.win_size }})
             - **macOS**: `PokeVoidOffline-Mac.dmg` (${{ steps.file_sizes.outputs.mac_size }})
+            - **macOS arm64**: `PokeVoidOffline-Mac-arm64.dmg` (${{ steps.file_sizes.outputs.mac_arm64_size }})
             - **Linux**: `PokeVoidOffline-Linux.AppImage` (${{ steps.file_sizes.outputs.lin_size }})
 
             ### 📱 Installation
@@ -558,6 +578,7 @@ jobs:
             PokeVoidOffline.apk
             PokeVoidOffline-Windows.exe
             PokeVoidOffline-Mac.dmg
+            PokeVoidOffline-Mac-arm64.dmg
             PokeVoidOffline-Linux.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
