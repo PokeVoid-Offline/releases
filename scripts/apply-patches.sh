@@ -36,6 +36,6 @@ apply_submodule_patch() {
 #apply_patch "remove-capacitor-updater.js"
 
 apply_patch "noZoom.js"
-
+apply_patch "remove-pokesave.js"
 
 echo "All patches applied successfully."
