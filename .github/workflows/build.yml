@@ -279,8 +279,7 @@ prepare:
 
       - name: Fix Android edge-to-edge status bar overlap
         working-directory: pokevoid-src
-        run: |
-          find . -name MainActivity.java -print 
+        run: find . -name MainActivity.java -print 
 
       - name: Fix Android edge-to-edge status bar overlap
         working-directory: pokevoid-src
