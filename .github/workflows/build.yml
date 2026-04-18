@@ -106,7 +106,7 @@ jobs:
       - name: Install Capacitor
         working-directory: pokevoid-src
         run: |
-          pnpm add @capacitor/core @capacitor/cli @capacitor/ios @capacitor/filesystem @capacitor/share @capacitor/status-bar
+          pnpm add @capacitor/core @capacitor/cli @capacitor/ios @capacitor/filesystem @capacitor/share @capacitor/status-bar @capacitor/browser
 
       - name: Configure Capacitor
         working-directory: pokevoid-src
@@ -242,7 +242,7 @@ jobs:
       - name: Install Capacitor
         working-directory: pokevoid-src
         run: |
-          pnpm add @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share
+          pnpm add @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share @capacitor/browser
 
       - name: Configure Capacitor
         working-directory: pokevoid-src
@@ -268,57 +268,31 @@ jobs:
         working-directory: pokevoid-src
         run: npx cap sync android
 
-      - name: Add Android permissions for file sharing
+      - name: Fix Android package ID and permissions
         working-directory: pokevoid-src
         run: |
+          # ---- Package ID ----
+          # cap add android uses the appId from capacitor.config.json as the
+          # applicationId in build.gradle, but the Java source directory and
+          # namespace still use the template default (com.getcapacitor.myapp).
+          # We need to rename the source directory and update all references.
+          OLD_PKG_PATH=$(find android/app/src/main/java -name "MainActivity.java" | head -1 | xargs dirname)
+          NEW_PKG_PATH="android/app/src/main/java/xyz/scooom/pv"
+          mkdir -p "$NEW_PKG_PATH"
+          cp "$OLD_PKG_PATH/MainActivity.java" "$NEW_PKG_PATH/MainActivity.java"
+          rm -rf android/app/src/main/java/com
+
+          # Update package declaration in MainActivity.java
+          sed -i 's/^package .*/package xyz.scooom.pv;/' "$NEW_PKG_PATH/MainActivity.java"
+
+          # Update namespace in build.gradle
+          sed -i 's/namespace = "[^"]*"/namespace = "xyz.scooom.pv"/' android/app/build.gradle
+
+          # ---- Permissions ----
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           grep -q "WRITE_EXTERNAL_STORAGE" $MANIFEST || \
             sed -i 's|<application|<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <application|' $MANIFEST
 
-      - name: Fix Android edge-to-edge status bar overlap
-        working-directory: pokevoid-src
-        run: |
-          # On Android 15+ edge-to-edge is enforced by default, causing the
-          # WebView to draw behind the status bar. We fix this by patching
-          # MainActivity to set the status bar color and enable proper insets,
-          # without requiring any extra Capacitor plugins.
-          MAIN="android/app/src/main/java/com/pokevoid/app/MainActivity.java"
-          cat > $MAIN << 'JAVAEOF'
-          package com.pokevoid.app;
-
-          import android.os.Bundle;
-          import android.view.View;
-          import android.view.Window;
-          import android.view.WindowManager;
-          import androidx.core.view.WindowCompat;
-          import com.getcapacitor.BridgeActivity;
-
-          public class MainActivity extends BridgeActivity {
-            @Override
-            public void onCreate(Bundle savedInstanceState) {
-              super.onCreate(savedInstanceState);
-
-              Window window = getWindow();
-
-              // Allow drawing under system bars so Capacitor WebView
-              // can handle insets via CSS env(safe-area-inset-*)
-              WindowCompat.setDecorFitsSystemWindows(window, false);
-
-              // Keep the status bar visible but transparent so the
-              // WebView CSS padding pushes content below it
-              window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-              window.setStatusBarColor(android.graphics.Color.TRANSPARENT);
-
-              // Light status bar icons (dark icons on light background) —
-              // adjust if your game has a light background near the top
-              View decorView = window.getDecorView();
-              decorView.setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-              );
-            }
-          }
-          JAVAEOF
 
       - name: Set app version
         working-directory: pokevoid-src
@@ -339,14 +313,22 @@ jobs:
             dir="${density%%:*}"
             size="${density##*:}"
             mkdir -p pokevoid-src/android/app/src/main/res/mipmap-${dir}
-            # ic_launcher: the standard icon (legacy, used as fallback)
+
+            # ic_launcher: plain square icon (legacy fallback)
             convert appIcon.png -resize ${size}x${size}               pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher.png
-            # ic_launcher_round: round variant shown on some launchers
-            convert appIcon.png -resize ${size}x${size}               pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher_round.png
+
+            # ic_launcher_round: round variant — add ~18% padding on each side
+            # so the artwork is not clipped by the circular mask on round launchers.
+            # The padded icon sits within the "safe zone" of the circle.
+            padded_size=$((size * 100 / 82))
+            convert appIcon.png               -resize ${size}x${size}               -gravity center               -background "#1a0030"               -extent ${padded_size}x${padded_size}               pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher_round.png
+
             # ic_launcher_foreground: used by adaptive icons (Android 8+)
-            # Size must be 108dp equivalent so foreground fills the safe zone
+            # Must be 108dp canvas with artwork in the inner 72dp safe zone (~66%).
+            # We place the icon at 66% of the canvas size, centered on a dark bg.
             fgsize=$((size * 108 / 48))
-            convert appIcon.png -resize ${fgsize}x${fgsize}               pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher_foreground.png
+            artsize=$((size * 72 / 48))
+            convert appIcon.png               -resize ${artsize}x${artsize}               -gravity center               -background "#1a0030"               -extent ${fgsize}x${fgsize}               pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher_foreground.png
           done
 
           # Delete the adaptive icon XML directory so Android 8+ uses the

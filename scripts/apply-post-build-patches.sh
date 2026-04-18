@@ -21,5 +21,7 @@ apply_patch() {
 
 # Post-build patches run after pnpm build, targeting dist/:
 apply_patch "notch-fix.js"
+apply_patch "capacitor-browser.js"
+
 
 echo "All post-build patches applied successfully."
