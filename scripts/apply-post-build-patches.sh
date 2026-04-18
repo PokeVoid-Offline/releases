@@ -20,7 +20,8 @@ apply_patch() {
 }
 
 # Post-build patches run after pnpm build, targeting dist/:
-apply_patch "notch-fix.js"
+# apply_patch "notch-fix.js"
+# disable this fix to see if this is causing black screen on android
 # apply_patch "capacitor-browser.js"
 # Disable this patch for now, it isn't working
 
