@@ -292,8 +292,10 @@ jobs:
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           grep -q "WRITE_EXTERNAL_STORAGE" $MANIFEST || \
             sed -i 's|<application|<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <application|' $MANIFEST
-
-
+          cat "$NEW_PKG_PATH/MainActivity.java"
+          cat android/app/build.gradle;
+          cat $MANIFEST;
+ 
       - name: Set app version
         working-directory: pokevoid-src
         run: |
