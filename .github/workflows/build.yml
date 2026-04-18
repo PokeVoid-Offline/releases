@@ -106,7 +106,7 @@ jobs:
       - name: Install Capacitor
         working-directory: pokevoid-src
         run: |
-          pnpm add @capacitor/core @capacitor/cli @capacitor/ios @capacitor/filesystem @capacitor/share @capacitor/status-bar @capacitor/browser
+          pnpm add @capacitor/core @capacitor/cli @capacitor/ios @capacitor/filesystem @capacitor/share @capacitor/status-bar
 
       - name: Configure Capacitor
         working-directory: pokevoid-src
@@ -242,7 +242,7 @@ jobs:
       - name: Install Capacitor
         working-directory: pokevoid-src
         run: |
-          pnpm add @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share @capacitor/browser
+          pnpm add @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share
 
       - name: Configure Capacitor
         working-directory: pokevoid-src
