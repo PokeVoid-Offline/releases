@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Patch: capacitor-export-fix.js
+ * Patch: pokevoid-capacitor-export-fix.js
  *
  * Fixes save data export in Capacitor native builds (iOS + Android).
  *
@@ -13,15 +13,15 @@
  * Solution:
  *   On native platforms, instead of immediately downloading, we inject a
  *   fullscreen DOM overlay with a real HTML button. The user taps it — a
- *   genuine DOM gesture — and the share sheet opens from that tap. The overlay
- *   removes itself on completion or dismissal.
+ *   genuine DOM gesture — and the file is saved from that tap.
  *
  * Platform differences:
- *   iOS   — write to DOCUMENTS directory so the file is accessible via Files app
- *           and the extension is preserved through the share sheet.
- *   Android — write to CACHE directory; the Android share sheet handles routing
- *           the file to Downloads or other targets correctly from there.
- *           (DOCUMENTS on Android is a private app dir, not user-accessible.)
+ *   iOS   — write to DOCUMENTS directory, then open share sheet so the user
+ *           can save to Files app. Extension is preserved via UTI registration.
+ *   Android — write directly to EXTERNAL_STORAGE (public Downloads folder).
+ *           Skip the share sheet entirely: Android share sheet doesn't know
+ *           the .prsv type so it only shows useless options (Print, Google).
+ *           Instead show a success message with the save location.
  *
  * Targets: pokevoid-src/src/system/game-data.ts
  */
@@ -39,11 +39,6 @@ if (!fs.existsSync(TARGET)) {
 
 let src = fs.readFileSync(TARGET, "utf8");
 
-// ---------------------------------------------------------------------------
-// Match the blob/link block. In pokevoid this uses `downloadName` (a variable
-// set earlier in handleData) rather than a template literal, and is indented
-// with 16 spaces inside the async handleData function.
-// ---------------------------------------------------------------------------
 const ORIGINAL = `                const blob = new Blob([encryptedData.toString()], { type: "text/json" });
                 const link = document.createElement("a");
                 link.href = window.URL.createObjectURL(blob);
@@ -53,32 +48,25 @@ const ORIGINAL = `                const blob = new Blob([encryptedData.toString(
 
 const REPLACEMENT = `                const cap = (window as any).Capacitor;
                 if (cap?.isNativePlatform?.()) {
-                  // On iOS/Android, Share.share() requires a genuine DOM user gesture.
-                  // Phaser's touch pipeline doesn't qualify, so we inject a fullscreen
-                  // overlay with a real HTML button. The user taps it, the OS sees a
-                  // legitimate gesture, and the share sheet opens cleanly.
+                  // On iOS/Android, blob URL downloads don't work in the Capacitor WebView.
+                  // We show a fullscreen DOM overlay with a real button so the OS sees a
+                  // genuine user gesture (required for share sheets on iOS).
                   const base64 = btoa(unescape(encodeURIComponent(encryptedData.toString())));
                   const platform = cap.getPlatform?.() ?? "ios";
-
-                  // iOS: use DOCUMENTS so the extension is preserved and the file
-                  // is accessible in the Files app.
-                  // Android: use CACHE — the share sheet routes it correctly from there,
-                  // and DOCUMENTS on Android is a private app directory users can't reach.
-                  const directory = platform === "android" ? "CACHE" : "DOCUMENTS";
 
                   // --- Build overlay ---
                   const overlay = document.createElement("div");
                   overlay.id = "cap-export-overlay";
                   Object.assign(overlay.style, {
-                    position:      "fixed",
-                    inset:         "0",
-                    zIndex:        "99999",
-                    display:       "flex",
-                    flexDirection: "column",
-                    alignItems:    "center",
-                    justifyContent:"center",
-                    background:    "rgba(0,0,0,0.72)",
-                    fontFamily:    "sans-serif",
+                    position:       "fixed",
+                    inset:          "0",
+                    zIndex:         "99999",
+                    display:        "flex",
+                    flexDirection:  "column",
+                    alignItems:     "center",
+                    justifyContent: "center",
+                    background:     "rgba(0,0,0,0.72)",
+                    fontFamily:     "sans-serif",
                   });
 
                   const label = document.createElement("p");
@@ -92,7 +80,7 @@ const REPLACEMENT = `                const cap = (window as any).Capacitor;
                   });
 
                   const btn = document.createElement("button");
-                  btn.textContent = "📁 Save to Files";
+                  btn.textContent = platform === "android" ? "💾 Save to Downloads" : "📁 Save to Files";
                   Object.assign(btn.style, {
                     padding:      "18px 40px",
                     fontSize:     "20px",
@@ -122,34 +110,77 @@ const REPLACEMENT = `                const cap = (window as any).Capacitor;
 
                   btn.addEventListener("click", () => {
                     btn.disabled = true;
-                    btn.textContent = "Opening\u2026";
+                    btn.textContent = "Saving\u2026";
 
                     const Filesystem = cap.Plugins?.Filesystem;
                     const Share = cap.Plugins?.Share;
-                    if (!Filesystem || !Share) {
-                      console.error("Capacitor Filesystem or Share plugin not available.");
+                    if (!Filesystem) {
+                      console.error("Capacitor Filesystem plugin not available.");
                       removeOverlay();
                       return;
                     }
 
-                    Filesystem.writeFile({
-                      path: downloadName,
-                      data: base64,
-                      directory: directory,
-                    }).then(() => {
-                      return Filesystem.getUri({ path: downloadName, directory: directory });
-                    }).then(({ uri }: { uri: string }) => {
-                      return Share.share({
-                        title: downloadName,
-                        url: uri,
-                        dialogTitle: \`Save \${downloadName}\`,
+                    if (platform === "android") {
+                      // Android: write directly to the public Downloads folder.
+                      // Skipping the share sheet because Android doesn't know the
+                      // .prsv file type, so it only shows useless options like Print.
+                      Filesystem.writeFile({
+                        path: \`Download/PokeVoid/\${downloadName}\`,
+                        data: base64,
+                        directory: "EXTERNAL_STORAGE",
+                      }).then(() => {
+                        removeOverlay();
+                        // Show brief confirmation
+                        const toast = document.createElement("div");
+                        toast.textContent = \`✓ Saved to Downloads/PokeVoid/\${downloadName}\`;
+                        Object.assign(toast.style, {
+                          position:     "fixed",
+                          bottom:       "40px",
+                          left:         "50%",
+                          transform:    "translateX(-50%)",
+                          background:   "rgba(0,0,0,0.85)",
+                          color:        "#fff",
+                          padding:      "14px 24px",
+                          borderRadius: "10px",
+                          fontSize:     "15px",
+                          zIndex:       "99999",
+                          textAlign:    "center",
+                          maxWidth:     "90vw",
+                        });
+                        document.body.appendChild(toast);
+                        setTimeout(() => toast.parentNode?.removeChild(toast), 3500);
+                      }).catch((err: any) => {
+                        console.error("Android export failed:", err);
+                        btn.disabled = false;
+                        btn.textContent = "💾 Save to Downloads";
                       });
-                    }).then(() => {
-                      removeOverlay();
-                    }).catch((err: any) => {
-                      console.error("Capacitor export failed:", err);
-                      removeOverlay();
-                    });
+                    } else {
+                      // iOS: write to Documents, then open share sheet so the
+                      // user can save to Files app or AirDrop etc.
+                      if (!Share) {
+                        console.error("Capacitor Share plugin not available.");
+                        removeOverlay();
+                        return;
+                      }
+                      Filesystem.writeFile({
+                        path: downloadName,
+                        data: base64,
+                        directory: "DOCUMENTS",
+                      }).then(() => {
+                        return Filesystem.getUri({ path: downloadName, directory: "DOCUMENTS" });
+                      }).then(({ uri }: { uri: string }) => {
+                        return Share.share({
+                          title: downloadName,
+                          url: uri,
+                          dialogTitle: \`Save \${downloadName}\`,
+                        });
+                      }).then(() => {
+                        removeOverlay();
+                      }).catch((err: any) => {
+                        console.error("iOS export failed:", err);
+                        removeOverlay();
+                      });
+                    }
                   });
 
                   cancelBtn.addEventListener("click", removeOverlay);
