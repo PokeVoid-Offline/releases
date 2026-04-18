@@ -82,7 +82,6 @@ jobs:
 
   # Build iOS IPA
   build-ios:
-    if: false
     needs: prepare
     runs-on: macos-latest
 
