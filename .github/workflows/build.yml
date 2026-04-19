@@ -317,20 +317,20 @@ jobs:
             mkdir -p pokevoid-src/android/app/src/main/res/mipmap-${dir}
 
             # ic_launcher: plain square icon (legacy fallback)
-            convert appIcon.png -resize ${size}x${size}               pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher.png
+            convert appIconAndroid.png -resize ${size}x${size}               pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher.png
 
             # ic_launcher_round: round variant — add ~18% padding on each side
             # so the artwork is not clipped by the circular mask on round launchers.
             # The padded icon sits within the "safe zone" of the circle.
             padded_size=$((size * 100 / 82))
-            convert appIcon.png               -resize ${size}x${size}               -gravity center               -background "#1a0030"               -extent ${padded_size}x${padded_size}               pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher_round.png
+            convert appIconAndroid.png               -resize ${size}x${size}               -gravity center               -background "#1a0030"               -extent ${padded_size}x${padded_size}               pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher_round.png
 
             # ic_launcher_foreground: used by adaptive icons (Android 8+)
             # Must be 108dp canvas with artwork in the inner 72dp safe zone (~66%).
             # We place the icon at 66% of the canvas size, centered on a dark bg.
             fgsize=$((size * 108 / 48))
             artsize=$((size * 72 / 48))
-            convert appIcon.png               -resize ${artsize}x${artsize}               -gravity center               -background "#1a0030"               -extent ${fgsize}x${fgsize}               pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher_foreground.png
+            convert appIconAndroid.png               -resize ${artsize}x${artsize}               -gravity center               -background "#1a0030"               -extent ${fgsize}x${fgsize}               pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher_foreground.png
           done
 
           # Delete the adaptive icon XML directory so Android 8+ uses the
