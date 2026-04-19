@@ -70,7 +70,7 @@ const STYLE_BLOCK = `
       #app {
         min-height: calc(100dvh - env(safe-area-inset-top));
       }
-}
+    }
   </style>`;
 
 const patched = src.replace("</head>", `${STYLE_BLOCK}\n</head>`);
