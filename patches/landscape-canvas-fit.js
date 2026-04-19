@@ -76,11 +76,8 @@ const STYLE_BLOCK = `
      * No size constraints are applied so Phaser's natural measurement is unaffected.
      */
     @media (orientation: landscape) {
-      body {
-        padding-top: 0 !important;
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
+      #app {
+        min-height: calc(100dvh);
       }
     }
   </style>`;
