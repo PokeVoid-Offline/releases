@@ -2,23 +2,23 @@
 /**
  * Patch: notch-fix.js
  *
- * Fixes content rendering under the status bar on iOS and Android.
+ * Fixes content rendering under the status bar on iOS and Android in portrait.
  *
  * Root cause:
- *   - pokevoid's index.html already has viewport-fit=cover, so
- *     env(safe-area-inset-*) variables are non-zero on iOS. Good.
- *   - However nothing in the CSS uses env(safe-area-inset-top) to
- *     actually push the canvas below the status bar.
- *   - On Android 15+, edge-to-edge is enforced by default, meaning
- *     the WebView draws behind the status bar regardless of orientation.
- *   - On iOS, "contentInset": "never" was removed from capacitor.config
- *     in build.yml so the WebView respects safe areas.
+ *   The WebView draws behind the status bar (edge-to-edge), so game content
+ *   starts at y=0 and is obscured by the status bar in portrait mode.
+ *
+ * Why not CSS:
+ *   Injecting a <style> tag into <head> triggers a synchronous style
+ *   recalculation before Phaser reads window dimensions at init time. This
+ *   causes Phaser to measure incorrect values in landscape, producing a
+ *   tiny/wrongly-scaled canvas. Even portrait-only media queries cause this
+ *   because the CSSOM change itself affects layout timing.
  *
  * Fix:
- *   Inject a <style> block that applies padding-top: env(safe-area-inset-top)
- *   to body universally. This works for both iOS (portrait notch) and Android
- *   (status bar in landscape). env(safe-area-inset-top) returns 0 when there
- *   is no status bar, so it's safe to apply unconditionally.
+ *   Apply the padding-top via JavaScript AFTER the window 'load' event, by
+ *   which point Phaser has already read dimensions and initialised its scale.
+ *   The JS only runs in portrait orientation, so landscape is never affected.
  *
  * Targets: pokevoid-src/dist/index.html
  */
@@ -36,44 +36,68 @@ if (!fs.existsSync(TARGET)) {
 
 let src = fs.readFileSync(TARGET, "utf8");
 
-if (src.includes('<style id="capacitor-notch-fix">')) {
-  console.log("Notch fix style already present, skipping.");
+if (src.includes('id="capacitor-notch-fix"')) {
+  console.log("Notch fix already present, skipping.");
   process.exit(0);
 }
 
-if (!src.includes("</head>")) {
-  console.error("ERROR: Could not find </head> in index.html.");
+if (!src.includes("</body>")) {
+  console.error("ERROR: Could not find </body> in index.html.");
   process.exit(1);
 }
 
-const STYLE_BLOCK = `
-  <style id="capacitor-notch-fix">
-    /*
-     * Push content below the device status bar on iOS and Android.
-     *
-     * env(safe-area-inset-top) returns the correct pixel value when:
-     *   iOS:     viewport-fit=cover is set (already done in index.html)
-     *   Android: Capacitor exposes window insets to the WebView
-     *
-     * It returns 0 when there is no status bar overlap, so applying
-     * it unconditionally is safe — no visible effect on desktop/web.
-     *
-     * Portrait:  status bar is at the top — padding pushes canvas down.
-     */
-    @media (orientation: portrait) {
-      body {
-        padding-top: env(safe-area-inset-top);
-        box-sizing: border-box;
+const SCRIPT_BLOCK = `
+  <script id="capacitor-notch-fix">
+    // Apply portrait notch/status-bar offset via JS after Phaser has initialised.
+    // Using CSS for this (even portrait-only media queries) causes a synchronous
+    // CSSOM recalculation that corrupts Phaser's initial dimension measurement in
+    // landscape, resulting in a tiny or wrongly-scaled canvas.
+    (function () {
+      function applyNotchPadding() {
+        if (window.matchMedia("(orientation: portrait)").matches) {
+          var inset = parseInt(
+            getComputedStyle(document.documentElement)
+              .getPropertyValue("--sat") || "0",
+            10
+          );
+          // Fall back to env() via a temporary element if custom property unavailable
+          var el = document.createElement("div");
+          el.style.cssText =
+            "position:fixed;top:env(safe-area-inset-top,0px);left:0;width:1px;height:1px;";
+          document.body.appendChild(el);
+          var top = el.getBoundingClientRect().top;
+          document.body.removeChild(el);
+          if (top > 0) {
+            document.body.style.paddingTop = top + "px";
+            document.body.style.boxSizing = "border-box";
+          }
+        } else {
+          // Remove any portrait padding when in landscape
+          document.body.style.paddingTop = "";
+          document.body.style.boxSizing = "";
+        }
       }
-      /* Shrink the app container by the same amount so the canvas
-         doesn't overflow and cause a scrollbar */
-      #app {
-        min-height: calc(100dvh - env(safe-area-inset-top));
-      }
-    }
-  </style>`;
 
-const patched = src.replace("</head>", `${STYLE_BLOCK}\n</head>`);
+      // Run after full load so Phaser has already initialised and measured dimensions
+      window.addEventListener("load", function () {
+        // Small delay to ensure Phaser's ScaleManager has completed its first layout
+        setTimeout(applyNotchPadding, 100);
+      });
+
+      // Re-apply on orientation change
+      window.addEventListener("orientationchange", function () {
+        setTimeout(applyNotchPadding, 300);
+      });
+      if (window.screen && window.screen.orientation) {
+        window.screen.orientation.addEventListener("change", function () {
+          setTimeout(applyNotchPadding, 300);
+        });
+      }
+    })();
+  </script>`;
+
+// Inject before </body> so it runs after the page structure is ready
+const patched = src.replace("</body>", `${SCRIPT_BLOCK}\n</body>`);
 
 if (patched === src) {
   console.error("ERROR: Replacement produced no change.");
@@ -81,5 +105,5 @@ if (patched === src) {
 }
 
 fs.writeFileSync(TARGET, patched, "utf8");
-console.log(`Injected safe-area-inset-top styles into ${TARGET}`);
+console.log(`Injected notch fix script into ${TARGET}`);
 console.log("Notch fix applied successfully.");
