@@ -27,10 +27,8 @@ if [[ "$PLATFORM" == "mobile" || "$PLATFORM" == "android" ]]; then
 fi
 
 # ── Android only ──────────────────────────────────────────────────────────────
-if [[ "$PLATFORM" == "android" ]]; then
-
-  # android-specific patches go here
-
-fi
+# if [[ "$PLATFORM" == "android" ]]; then
+#   apply_patch "example.js" android
+# fi
 
 echo "All patches applied successfully (platform: $PLATFORM)."
