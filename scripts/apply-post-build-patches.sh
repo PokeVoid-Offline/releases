@@ -16,10 +16,11 @@ source "$(dirname "$0")/patch-lib.sh"
 # ── Mobile (iOS + Android) ────────────────────────────────────────────────────
 if [[ "$PLATFORM" == "mobile" || "$PLATFORM" == "android" ]]; then
 
-  apply_patch "notch-fix.js"               mobile
-  apply_patch "capacitor-browser.js"       mobile
+  apply_patch "notch-fix.js"                mobile
+  apply_patch "capacitor-browser.js"        mobile
   apply_patch "champion-select-c-button.js" mobile
-  apply_patch "landscape-canvas-fit.js"    mobile
+  apply_patch "landscape-canvas-fit.js"     mobile
+  apply_patch "canvas-scale-fix.js"         mobile
 
 fi
 
