@@ -59,7 +59,7 @@ jobs:
 
       - name: Install PokeVoid dependencies
         working-directory: pokevoid-src
-        run: pnpm install
+        run: pnpm install --config.dangerously-allow-all-builds=true
 
       - name: Build PokeVoid
         working-directory: pokevoid-src
