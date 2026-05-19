@@ -15,7 +15,8 @@ source "$(dirname "$0")/patch-lib.sh"
 
 # ── All platforms ─────────────────────────────────────────────────────────────
 
-apply_patch "remove-pokesave.js"  all
+apply_patch "remove-pokesave.js"      all
+apply_patch "inject-build-number.js"  all
 
 # ── Mobile (iOS + Android) ────────────────────────────────────────────────────
 if [[ "$PLATFORM" == "mobile" || "$PLATFORM" == "android" ]]; then

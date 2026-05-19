@@ -37,6 +37,12 @@ jobs:
         shell: bash
         run: bash scripts/apply-patches.sh exe
 
+      - name: Inject build number
+        shell: bash
+        run: |
+          BUILD_NUM=${{ inputs.build_number || github.run_number }}
+          sed -i "s/BUILD_NUMBER_PLACEHOLDER/${BUILD_NUM}/g" pokevoid-src/src/system/game-data.ts
+
       - name: Remove CapacitorUpdater import from main.ts
         shell: bash
         run: |
