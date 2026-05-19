@@ -7,7 +7,6 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 720,
-    fullscreen: true,
     icon: path.join(__dirname, 'appIcon.ico'),
     webPreferences: {
       nodeIntegration: false,
