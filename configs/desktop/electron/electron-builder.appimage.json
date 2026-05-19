@@ -1,0 +1,15 @@
+{
+  "appId": "xyz.scooom.pv",
+  "productName": "PokeVoid Offline",
+  "linux": {
+    "target": ["AppImage"],
+    "category": "Game",
+    "icon": "appIcon.png"
+  },
+  "files": [
+    "dist/**/*",
+    "main.cjs",
+    "appIcon.png",
+    "node_modules/**/*"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "appId": "xyz.scooom.pv",
+  "productName": "PokeVoid Offline",
+  "win": {
+    "target": ["portable"],
+    "icon": "appIcon.ico",
+    "verifyUpdateCodeSignature": false,
+    "signAndEditExecutable": false
+  },
+  "files": [
+    "dist/**/*",
+    "main.cjs",
+    "appIcon.ico",
+    "node_modules/**/*"
+  ]
+}

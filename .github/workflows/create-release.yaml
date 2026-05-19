@@ -1,0 +1,310 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write   # needed to trigger and query other workflow runs
+  contents: write  # needed to create the GitHub release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # Record a timestamp just before triggering each build, then locate the
+      # resulting run ID by finding the first run created after that moment.
+      # This avoids any dependency on workflow inputs being queryable via API.
+      # -----------------------------------------------------------------------
+      - name: Trigger iOS build
+        id: trigger_ios
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          gh workflow run build.yml --ref "${{ github.ref_name }}"
+          echo "triggered_after=$TS" >> $GITHUB_OUTPUT
+
+      - name: Trigger Android build
+        id: trigger_android
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          gh workflow run build.yml --ref "${{ github.ref_name }}"
+          echo "triggered_after=$TS" >> $GITHUB_OUTPUT
+
+      - name: Trigger AppImage build
+        id: trigger_appimage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          gh workflow run build-appimage.yml --ref "${{ github.ref_name }}"
+          echo "triggered_after=$TS" >> $GITHUB_OUTPUT
+
+      - name: Trigger Windows build
+        id: trigger_windows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          gh workflow run build-exe.yml --ref "${{ github.ref_name }}"
+          echo "triggered_after=$TS" >> $GITHUB_OUTPUT
+
+      # -----------------------------------------------------------------------
+      # Locate the run IDs by polling for runs created after the trigger
+      # timestamps. Retry for up to 2 minutes to allow GitHub to register them.
+      # -----------------------------------------------------------------------
+      - name: Locate run IDs
+        id: runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          IOS_AFTER: ${{ steps.trigger_ios.outputs.triggered_after }}
+          ANDROID_AFTER: ${{ steps.trigger_android.outputs.triggered_after }}
+          APPIMAGE_AFTER: ${{ steps.trigger_appimage.outputs.triggered_after }}
+          WINDOWS_AFTER: ${{ steps.trigger_windows.outputs.triggered_after }}
+        run: |
+          set -e
+
+          locate_run() {
+            local workflow="$1"
+            local after="$2"
+            local label="$3"
+            local outfile="$4"
+
+            for i in $(seq 1 24); do
+              RUN_ID=$(gh api \
+                "repos/$REPO/actions/workflows/${workflow}/runs?per_page=5&created=>=${after}" \
+                --jq '.workflow_runs | sort_by(.created_at) | .[0].id // empty')
+              if [ -n "$RUN_ID" ]; then
+                echo "Found $label run: $RUN_ID"
+                echo "$RUN_ID" > "$outfile"
+                return 0
+              fi
+              echo "Waiting for $label run to appear... (attempt $i/24)"
+              sleep 5
+            done
+
+            echo "ERROR: Timed out locating $label run ID."
+            return 1
+          }
+
+          locate_run "build.yml" "$IOS_AFTER" "iOS" /tmp/ios_run_id
+          locate_run "build.yml" "$ANDROID_AFTER" "Android" /tmp/android_run_id
+          locate_run "build-appimage.yml" "$APPIMAGE_AFTER" "AppImage" /tmp/appimage_run_id
+          locate_run "build-exe.yml" "$WINDOWS_AFTER" "Windows" /tmp/windows_run_id
+
+          IOS_RUN_ID=$(cat /tmp/ios_run_id)
+          ANDROID_RUN_ID=$(cat /tmp/android_run_id)
+          APPIMAGE_RUN_ID=$(cat /tmp/appimage_run_id)
+          WINDOWS_RUN_ID=$(cat /tmp/windows_run_id)
+
+          echo "ios_run_id=$IOS_RUN_ID" >> $GITHUB_OUTPUT
+          echo "android_run_id=$ANDROID_RUN_ID" >> $GITHUB_OUTPUT
+          echo "appimage_run_id=$APPIMAGE_RUN_ID" >> $GITHUB_OUTPUT
+          echo "windows_run_id=$WINDOWS_RUN_ID" >> $GITHUB_OUTPUT
+
+      # -----------------------------------------------------------------------
+      # Poll until all runs reach a terminal state.
+      # Timeout after 90 minutes. If one build fails, cancel the others.
+      # -----------------------------------------------------------------------
+      - name: Wait for builds to complete
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          IOS_RUN_ID: ${{ steps.runs.outputs.ios_run_id }}
+          ANDROID_RUN_ID: ${{ steps.runs.outputs.android_run_id }}
+          APPIMAGE_RUN_ID: ${{ steps.runs.outputs.appimage_run_id }}
+          WINDOWS_RUN_ID: ${{ steps.runs.outputs.windows_run_id }}
+        run: |
+          set -e
+
+          TIMEOUT=5400  # 90 minutes
+          POLL=30
+          ELAPSED=0
+
+          cancel_run() {
+            local run_id="$1"
+            local label="$2"
+            local status="$3"
+            if [ "$status" != "completed" ]; then
+              echo "Cancelling $label run $run_id..."
+              gh api --method POST "repos/$REPO/actions/runs/$run_id/cancel" || true
+            fi
+          }
+
+          while true; do
+            IOS_STATUS=$(gh api "repos/$REPO/actions/runs/$IOS_RUN_ID" --jq '.status')
+            IOS_CONCLUSION=$(gh api "repos/$REPO/actions/runs/$IOS_RUN_ID" --jq '.conclusion')
+            ANDROID_STATUS=$(gh api "repos/$REPO/actions/runs/$ANDROID_RUN_ID" --jq '.status')
+            ANDROID_CONCLUSION=$(gh api "repos/$REPO/actions/runs/$ANDROID_RUN_ID" --jq '.conclusion')
+            APPIMAGE_STATUS=$(gh api "repos/$REPO/actions/runs/$APPIMAGE_RUN_ID" --jq '.status')
+            APPIMAGE_CONCLUSION=$(gh api "repos/$REPO/actions/runs/$APPIMAGE_RUN_ID" --jq '.conclusion')
+            WINDOWS_STATUS=$(gh api "repos/$REPO/actions/runs/$WINDOWS_RUN_ID" --jq '.status')
+            WINDOWS_CONCLUSION=$(gh api "repos/$REPO/actions/runs/$WINDOWS_RUN_ID" --jq '.conclusion')
+
+            echo "iOS: $IOS_STATUS / $IOS_CONCLUSION | Android: $ANDROID_STATUS / $ANDROID_CONCLUSION | AppImage: $APPIMAGE_STATUS / $APPIMAGE_CONCLUSION | Windows: $WINDOWS_STATUS / $WINDOWS_CONCLUSION | (${ELAPSED}s elapsed)"
+
+            if [ "$IOS_STATUS" = "completed" ] && [ "$IOS_CONCLUSION" != "success" ]; then
+              cancel_run "$ANDROID_RUN_ID" "Android" "$ANDROID_STATUS"
+              cancel_run "$APPIMAGE_RUN_ID" "AppImage" "$APPIMAGE_STATUS"
+              cancel_run "$WINDOWS_RUN_ID" "Windows" "$WINDOWS_STATUS"
+              echo "ERROR: iOS build ended with: $IOS_CONCLUSION"
+              exit 1
+            fi
+            if [ "$ANDROID_STATUS" = "completed" ] && [ "$ANDROID_CONCLUSION" != "success" ]; then
+              cancel_run "$IOS_RUN_ID" "iOS" "$IOS_STATUS"
+              cancel_run "$APPIMAGE_RUN_ID" "AppImage" "$APPIMAGE_STATUS"
+              cancel_run "$WINDOWS_RUN_ID" "Windows" "$WINDOWS_STATUS"
+              echo "ERROR: Android build ended with: $ANDROID_CONCLUSION"
+              exit 1
+            fi
+            if [ "$APPIMAGE_STATUS" = "completed" ] && [ "$APPIMAGE_CONCLUSION" != "success" ]; then
+              cancel_run "$IOS_RUN_ID" "iOS" "$IOS_STATUS"
+              cancel_run "$ANDROID_RUN_ID" "Android" "$ANDROID_STATUS"
+              cancel_run "$WINDOWS_RUN_ID" "Windows" "$WINDOWS_STATUS"
+              echo "ERROR: AppImage build ended with: $APPIMAGE_CONCLUSION"
+              exit 1
+            fi
+            if [ "$WINDOWS_STATUS" = "completed" ] && [ "$WINDOWS_CONCLUSION" != "success" ]; then
+              cancel_run "$IOS_RUN_ID" "iOS" "$IOS_STATUS"
+              cancel_run "$ANDROID_RUN_ID" "Android" "$ANDROID_STATUS"
+              cancel_run "$APPIMAGE_RUN_ID" "AppImage" "$APPIMAGE_STATUS"
+              echo "ERROR: Windows build ended with: $WINDOWS_CONCLUSION"
+              exit 1
+            fi
+
+            if [ "$IOS_STATUS" = "completed" ] && [ "$ANDROID_STATUS" = "completed" ] && [ "$APPIMAGE_STATUS" = "completed" ] && [ "$WINDOWS_STATUS" = "completed" ]; then
+              echo "All builds succeeded."
+              break
+            fi
+
+            ELAPSED=$((ELAPSED + POLL))
+            if [ $ELAPSED -ge $TIMEOUT ]; then
+              cancel_run "$IOS_RUN_ID" "iOS" "$IOS_STATUS"
+              cancel_run "$ANDROID_RUN_ID" "Android" "$ANDROID_STATUS"
+              cancel_run "$APPIMAGE_RUN_ID" "AppImage" "$APPIMAGE_STATUS"
+              cancel_run "$WINDOWS_RUN_ID" "Windows" "$WINDOWS_STATUS"
+              echo "ERROR: Timed out waiting for builds to complete."
+              exit 1
+            fi
+            sleep $POLL
+          done
+
+      # -----------------------------------------------------------------------
+      # Download all artifacts into the workspace.
+      # -----------------------------------------------------------------------
+      - name: Download IPA artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          IOS_RUN_ID: ${{ steps.runs.outputs.ios_run_id }}
+        run: |
+          ARTIFACT_ID=$(gh api "repos/$REPO/actions/runs/$IOS_RUN_ID/artifacts" \
+            --jq '.artifacts[] | select(.name == "PokeVoidOffline-IPA") | .id')
+          gh api "repos/$REPO/actions/artifacts/$ARTIFACT_ID/zip" > ipa.zip
+          unzip ipa.zip -d ipa-out
+          mv ipa-out/PokeVoidOffline.ipa ./PokeVoidOffline.ipa
+
+      - name: Download APK artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ANDROID_RUN_ID: ${{ steps.runs.outputs.android_run_id }}
+        run: |
+          ARTIFACT_ID=$(gh api "repos/$REPO/actions/runs/$ANDROID_RUN_ID/artifacts" \
+            --jq '.artifacts[] | select(.name == "PokeVoidOffline-APK") | .id')
+          gh api "repos/$REPO/actions/artifacts/$ARTIFACT_ID/zip" > apk.zip
+          unzip apk.zip -d apk-out
+          mv apk-out/PokeVoidOffline.apk ./PokeVoidOffline.apk
+
+      - name: Download AppImage artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          APPIMAGE_RUN_ID: ${{ steps.runs.outputs.appimage_run_id }}
+        run: |
+          ARTIFACT_ID=$(gh api "repos/$REPO/actions/runs/$APPIMAGE_RUN_ID/artifacts" \
+            --jq '.artifacts[] | select(.name == "PokeVoidOffline-AppImage") | .id')
+          gh api "repos/$REPO/actions/artifacts/$ARTIFACT_ID/zip" > appimage.zip
+          unzip appimage.zip -d appimage-out
+          mv appimage-out/PokeVoidOffline.AppImage ./PokeVoidOffline.AppImage
+
+      - name: Download Windows EXE artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          WINDOWS_RUN_ID: ${{ steps.runs.outputs.windows_run_id }}
+        run: |
+          ARTIFACT_ID=$(gh api "repos/$REPO/actions/runs/$WINDOWS_RUN_ID/artifacts" \
+            --jq '.artifacts[] | select(.name == "PokeVoidOffline-Windows") | .id')
+          gh api "repos/$REPO/actions/artifacts/$ARTIFACT_ID/zip" > windows.zip
+          unzip windows.zip -d windows-out
+          mv windows-out/PokeVoidOffline.exe ./PokeVoidOffline.exe
+
+      # -----------------------------------------------------------------------
+      # Publish the combined GitHub release.
+      # -----------------------------------------------------------------------
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.4.3-${{ github.run_number }}
+          name: PokeVoid Offline v2.4.3 (Build ${{ github.run_number }})
+          prerelease: true
+          body: |
+            ## PokeVoid Offline v2.4.3
+
+            - **PokeVoidOffline.ipa** — iOS (sideload via SideStore / LiveContainer / Feather)
+            - **PokeVoidOffline.apk** — Android (sideload by enabling "Install unknown apps")
+            - **PokeVoidOffline.AppImage** — Linux AppImage
+            - **PokeVoidOffline.exe** — Windows Portable EXE
+
+          files: |
+            PokeVoidOffline.ipa
+            PokeVoidOffline.apk
+            PokeVoidOffline.AppImage
+            PokeVoidOffline.exe
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # -----------------------------------------------------------------------
+  # Runs only if the release job is cancelled.
+  # -----------------------------------------------------------------------
+  cancel-builds:
+    runs-on: ubuntu-latest
+    needs: release
+    if: cancelled()
+    steps:
+      - name: Cancel any active build runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          cancel_active_runs() {
+            local workflow="$1"
+            local label="$2"
+
+            RUN_IDS=$(gh api "repos/$REPO/actions/workflows/${workflow}/runs?per_page=10" \
+              --jq '.workflow_runs[] | select(.status == "in_progress" or .status == "queued") | .id')
+
+            if [ -z "$RUN_IDS" ]; then
+              echo "No active $label runs to cancel."
+              return
+            fi
+
+            for RUN_ID in $RUN_IDS; do
+              echo "Cancelling $label run $RUN_ID..."
+              gh api --method POST "repos/$REPO/actions/runs/$RUN_ID/cancel" || true
+            done
+          }
+
+          cancel_active_runs "build.yml" "iOS/Android"
+          cancel_active_runs "build-appimage.yml" "AppImage"
+          cancel_active_runs "build-exe.yml" "Windows"

@@ -1,0 +1,103 @@
+name: Build PokeVoid AppImage
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'Build number (leave blank to use this workflow run number)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Clone PokeVoid fork
+        run: git clone --recurse-submodules --depth 1 --branch main https://github.com/smittynugget/pokevoid.git pokevoid-src
+
+      - name: Apply patches
+        run: bash ${{ github.workspace }}/scripts/apply-patches.sh
+
+      - name: Remove CapacitorUpdater import from main.ts
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = 'pokevoid-src/src/main.ts';
+            let content = fs.readFileSync(path, 'utf8');
+            content = content.replace(
+              /(void boot\(\);)[\s\S]*?(export default game;)/,
+              '\$1\n\n\$2'
+            );
+            fs.writeFileSync(path, content);
+          "
+
+      - name: Install PokeVoid dependencies
+        working-directory: pokevoid-src
+        run: pnpm install
+
+      - name: Install Electron dependencies
+        working-directory: pokevoid-src
+        run: pnpm add -D electron electron-builder
+
+      - name: Build PokeVoid
+        working-directory: pokevoid-src
+        env:
+          VITE_BYPASS_LOGIN: '1'
+        run: pnpm build --mode app
+
+      - name: Apply post-build patches
+        run: bash ${{ github.workspace }}/scripts/apply-post-build-patches.sh
+
+      - name: Copy Electron config files into place
+        run: |
+          cp ${{ github.workspace }}/configs/desktop/electron/main.cjs pokevoid-src/main.cjs
+          cp ${{ github.workspace }}/configs/desktop/electron/electron-builder.appimage.json pokevoid-src/electron-builder.json
+          cp ${{ github.workspace }}/appIcon.png pokevoid-src/appIcon.png
+
+      - name: Set electron main in package.json
+        working-directory: pokevoid-src
+        run: |
+          node -e "
+            const pkg = require('./package.json');
+            if (!pkg.description) pkg.description = 'PokeVoid Offline';
+            if (!pkg.author) pkg.author = 'Scooom';
+            pkg.main = 'main.cjs';
+            require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2));
+          "
+
+      - name: Generate AppImage
+        working-directory: pokevoid-src
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm electron-builder --linux AppImage --config electron-builder.json
+
+      - name: Rename and save AppImage
+        id: appimage_path
+        run: |
+          FILE=$(find -type f -name "*.AppImage")
+          OUTPUT="./PokeVoidOffline.AppImage"
+          mv "$FILE" "$OUTPUT"
+          echo "AppImage=$OUTPUT" >> $GITHUB_OUTPUT
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PokeVoidOffline-AppImage
+          path: ${{ steps.appimage_path.outputs.AppImage }}
+          retention-days: 30
