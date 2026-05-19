@@ -31,4 +31,11 @@ fi
 #   apply_patch "example.js" android
 # fi
 
+# ── Desktop (AppImage + EXE) ──────────────────────────────────────────────────
+if [[ "$PLATFORM" == "appimage" || "$PLATFORM" == "exe" ]]; then
+
+  apply_patch "vite-base-relative.js" desktop
+
+fi
+
 echo "All patches applied successfully (platform: $PLATFORM)."
