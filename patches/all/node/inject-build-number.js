@@ -21,25 +21,24 @@ if (!fs.existsSync(TARGET)) {
   process.exit(1);
 }
 
-let src = fs.readFileSync(TARGET, "utf8");
+// Read and normalise line endings so the match works on both Windows and Linux runners
+let src = fs.readFileSync(TARGET, "utf8").replace(/\r\n/g, "\n");
 
-const ORIGINAL = `    public getDisplayVersion(): string {
-        const baseVersion = i18next.t("menu:gameVersion") || this.scene.game.config.gameVersion;
-        return this.formatVersionWithInternal(baseVersion);
-    }`;
+// Match getDisplayVersion() regardless of exact whitespace/indentation
+const PATTERN = /(public getDisplayVersion\(\): string \{[\s\S]*?return this\.formatVersionWithInternal\(baseVersion\);[\s\S]*?\})/;
 
-const REPLACEMENT = `    public getDisplayVersion(): string {
-        const baseVersion = i18next.t("menu:gameVersion") || this.scene.game.config.gameVersion;
-        const formatted = this.formatVersionWithInternal(baseVersion);
-        return formatted + " (Build BUILD_NUMBER_PLACEHOLDER)";
-    }`;
-
-if (!src.includes(ORIGINAL)) {
+if (!PATTERN.test(src)) {
   console.error("ERROR: Could not find getDisplayVersion() in game-data.ts.");
   console.error("The file may have been updated upstream. Manual inspection required.");
   process.exit(1);
 }
 
-src = src.replace(ORIGINAL, REPLACEMENT);
+src = src.replace(PATTERN, (match) => {
+  return match.replace(
+    "return this.formatVersionWithInternal(baseVersion);",
+    `const formatted = this.formatVersionWithInternal(baseVersion);\n        return formatted + " (Build BUILD_NUMBER_PLACEHOLDER)";`
+  );
+});
+
 fs.writeFileSync(TARGET, src, "utf8");
 console.log("Build number injected into getDisplayVersion() successfully.");

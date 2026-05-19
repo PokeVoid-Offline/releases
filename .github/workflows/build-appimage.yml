@@ -57,7 +57,7 @@ jobs:
 
       - name: Install Electron dependencies
         working-directory: pokevoid-src
-        run: pnpm add -D electron electron-builder
+        run: pnpm add -D electron electron-builder --config.dangerously-allow-all-builds=true
 
       - name: Build PokeVoid
         working-directory: pokevoid-src
