@@ -48,7 +48,7 @@ jobs:
       - name: Inject build number
         run: |
           BUILD_NUM=${{ inputs.build_number || github.run_number }}
-          sed -i '' "s/BUILD_NUMBER_PLACEHOLDER/${BUILD_NUM}/g" pokevoid-src/src/system/game-data.ts
+          sed -i "s/BUILD_NUMBER_PLACEHOLDER/${BUILD_NUM}/g" pokevoid-src/src/system/game-data.ts
 
       - name: Remove CapacitorUpdater import from main.ts
         run: |
