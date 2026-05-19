@@ -3,15 +3,25 @@ const fs = require('fs');
 const filePath = 'pokevoid-src/package.json';
 let content = fs.readFileSync(filePath, 'utf8');
 
-const anchor = `		"remove-pokesave": "if exist .\\\\dist\\\\pokesave rmdir /s /q .\\\\dist\\\\pokesave",`;
+// Remove the "npm run remove-pokesave" call from the build scripts so that
+// passing --mode app doesn't cause the extra args to leak into the shell command.
+// The pokesave directory simply won't exist in our builds anyway.
+const replacements = [
+  ['&& npm run remove-pokesave', ''],
+];
 
-if (!content.includes(anchor)) {
-  console.warn('remove-pokesave Anchor not found — skipping');
-  process.exit(1);
+let changed = false;
+for (const [from, to] of replacements) {
+  if (content.includes(from)) {
+    content = content.split(from).join(to);
+    changed = true;
+  }
 }
-const injection = `		"remove-pokesave": "if [ -d ./dist/pokesave ]; then rm -rf ./dist/pokesave; fi;",`;
-content = content.replace(anchor, injection );
 
+if (!changed) {
+  console.warn('remove-pokesave: nothing to patch — skipping');
+  process.exit(0);
+}
 
 fs.writeFileSync(filePath, content);
-console.log('Fixed remove-pokesave for linux building');
+console.log('Removed npm run remove-pokesave from build scripts.');
