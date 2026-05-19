@@ -35,7 +35,7 @@ jobs:
 
       - name: Apply patches
         shell: bash
-        run: bash scripts/apply-patches.sh
+        run: bash scripts/apply-patches.sh exe
 
       - name: Remove CapacitorUpdater import from main.ts
         shell: bash
@@ -75,7 +75,7 @@ jobs:
 
       - name: Apply post-build patches
         shell: bash
-        run: bash scripts/apply-post-build-patches.sh
+        run: bash scripts/apply-post-build-patches.sh exe
 
       - name: Copy Electron config files into place
         shell: bash

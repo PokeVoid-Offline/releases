@@ -43,7 +43,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Apply patches
-        run: bash ${{ github.workspace }}/scripts/apply-patches.sh
+        run: bash ${{ github.workspace }}/scripts/apply-patches.sh android
 
       - name: Remove CapacitorUpdater import from main.ts
         run: |
@@ -69,7 +69,7 @@ jobs:
         run: pnpm build --mode app
 
       - name: Apply post-build patches
-        run: bash ${{ github.workspace }}/scripts/apply-post-build-patches.sh
+        run: bash ${{ github.workspace }}/scripts/apply-post-build-patches.sh android
 
       - name: Install Capacitor
         working-directory: pokevoid-src
@@ -78,19 +78,7 @@ jobs:
 
       - name: Configure Capacitor
         working-directory: pokevoid-src
-        run: |
-          cat > capacitor.config.json << 'CAPEOF'
-          {
-            "appId": "xyz.scooom.pv",
-            "appName": "PokeVoid Offline",
-            "webDir": "dist",
-            "android": {
-              "allowMixedContent": true,
-              "backgroundColor": "#000000",
-              "orientation": "landscape"
-            }
-          }
-          CAPEOF
+        run: cp ${{ github.workspace }}/configs/android/capacitor/capacitor.config.json capacitor.config.json
 
       - name: Add Android platform
         working-directory: pokevoid-src
@@ -99,6 +87,15 @@ jobs:
       - name: Sync Capacitor
         working-directory: pokevoid-src
         run: npx cap sync android
+
+      - name: Copy static MainActivity
+        working-directory: pokevoid-src
+        run: |
+          DEST=$(find android/app/src/main/java -name "MainActivity.java" | head -n 1)
+          cp ${{ github.workspace }}/configs/android/java/MainActivity.java "$DEST"
+          # Update package declaration to match the destination package path
+          PKG_PATH=$(dirname "$DEST" | sed 's|.*/java/||' | tr '/' '.')
+          sed -i "s/^package .*/package $PKG_PATH;/" "$DEST"
 
       - name: Fix Android package ID and permissions
         working-directory: pokevoid-src
@@ -109,7 +106,6 @@ jobs:
           cp "$OLD_PKG_PATH/MainActivity.java" "$NEW_PKG_PATH/MainActivity.java"
           rm -rf android/app/src/main/java/com
 
-          sed -i 's/^package .*/package xyz.scooom.pv;/' "$NEW_PKG_PATH/MainActivity.java"
           sed -i 's/namespace = "[^"]*"/namespace = "xyz.scooom.pv"/' android/app/build.gradle
           sed -i 's/applicationId "[^"]*"/applicationId "xyz.scooom.pv"/' android/app/build.gradle
 
@@ -139,33 +135,38 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y imagemagick
 
+          ICON_SRC="${{ github.workspace }}/appIconAndroid.png"
+          RES_DIR="pokevoid-src/android/app/src/main/res"
+
           for density in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
             dir="${density%%:*}"
             size="${density##*:}"
-            mkdir -p pokevoid-src/android/app/src/main/res/mipmap-${dir}
+            mkdir -p "$RES_DIR/mipmap-${dir}"
 
-            convert appIconAndroid.png -resize ${size}x${size} \
-              pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher.png
+            convert "$ICON_SRC" -resize ${size}x${size} \
+              "$RES_DIR/mipmap-${dir}/ic_launcher.png"
 
             padded_size=$((size * 100 / 82))
-            convert appIconAndroid.png \
+            convert "$ICON_SRC" \
               -resize ${size}x${size} \
               -gravity center \
               -background "#1a0030" \
               -extent ${padded_size}x${padded_size} \
-              pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher_round.png
+              "$RES_DIR/mipmap-${dir}/ic_launcher_round.png"
 
             fgsize=$((size * 108 / 48))
             artsize=$((size * 72 / 48))
-            convert appIconAndroid.png \
+            convert "$ICON_SRC" \
               -resize ${artsize}x${artsize} \
               -gravity center \
               -background "#1a0030" \
               -extent ${fgsize}x${fgsize} \
-              pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher_foreground.png
+              "$RES_DIR/mipmap-${dir}/ic_launcher_foreground.png"
           done
 
-          rm -rf pokevoid-src/android/app/src/main/res/mipmap-anydpi-v26
+          mkdir -p "$RES_DIR/mipmap-anydpi-v26"
+          cp ${{ github.workspace }}/configs/android/res/mipmap-anydpi-v26/ic_launcher.xml "$RES_DIR/mipmap-anydpi-v26/ic_launcher.xml"
+          cp ${{ github.workspace }}/configs/android/res/mipmap-anydpi-v26/ic_launcher_round.xml "$RES_DIR/mipmap-anydpi-v26/ic_launcher_round.xml"
 
       - name: Make gradlew executable
         working-directory: pokevoid-src/android

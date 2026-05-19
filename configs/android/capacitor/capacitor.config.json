@@ -1,0 +1,19 @@
+{
+  "appId": "xyz.scooom.pv",
+  "appName": "PokeVoid Offline",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#000000",
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false,
+    "orientation": "landscape"
+  },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DARK",
+      "backgroundColor": "#000000"
+    }
+  }
+}

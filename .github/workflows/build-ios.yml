@@ -37,7 +37,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Apply patches
-        run: bash ${{ github.workspace }}/scripts/apply-patches.sh
+        run: bash ${{ github.workspace }}/scripts/apply-patches.sh mobile
 
       - name: Remove CapacitorUpdater import from main.ts
         run: |
@@ -63,7 +63,7 @@ jobs:
         run: pnpm build --mode app
 
       - name: Apply post-build patches
-        run: bash ${{ github.workspace }}/scripts/apply-post-build-patches.sh
+        run: bash ${{ github.workspace }}/scripts/apply-post-build-patches.sh mobile
 
       - name: Install Capacitor
         working-directory: pokevoid-src
@@ -73,26 +73,8 @@ jobs:
       - name: Configure Capacitor
         working-directory: pokevoid-src
         run: |
-          cat > capacitor.config.json << 'CAPEOF'
-          {
-            "appId": "xyz.scooom.pv",
-            "appName": "PokeVoid Offline",
-            "webDir": "dist",
-            "ios": {
-              "scrollEnabled": false,
-              "backgroundColor": "#000000",
-              "allowsLinkPreview": false,
-              "allowsBackForwardNavigationGestures": false
-            },
-            "plugins": {
-              "StatusBar": {
-                "overlaysWebView": false,
-                "style": "DARK",
-                "backgroundColor": "#000000"
-              }
-            }
-          }
-          CAPEOF
+          cp ${{ github.workspace }}/configs/ios/capacitor/capacitor.config.json capacitor.config.json
+          cat capacitor.config.json
 
       - name: Add iOS platform
         working-directory: pokevoid-src

@@ -1,28 +1,26 @@
 #!/bin/bash
 set -e
+# apply-post-build-patches.sh — post-build patches (run after pnpm build, targeting dist/)
+#
+# Usage:
+#   ./apply-post-build-patches.sh            # all platforms (default)
+#   ./apply-post-build-patches.sh mobile     # all + mobile (iOS + Android)
+#   ./apply-post-build-patches.sh android    # all + mobile + android
+#   ./apply-post-build-patches.sh appimage   # all + desktop
+#   ./apply-post-build-patches.sh exe        # all + desktop
 
-SCRIPT_DIR="$(dirname "$0")"
-PATCHES_DIR="$SCRIPT_DIR/../patches"
+PLATFORM="${1:-all}"
 
-apply_patch() {
-  local file="$1"
-  local full_path="$PATCHES_DIR/$file"
-  echo "Applying: $file"
-  if [[ "$file" == *.patch ]]; then
-    git -C "pokevoid-src" apply "$full_path"
-  elif [[ "$file" == *.js ]]; then
-    node "$full_path"
-  else
-    echo "Unknown file type: $file"
-    exit 1
-  fi
-  echo "Applied: $file"
-}
+source "$(dirname "$0")/patch-lib.sh"
 
-# Post-build patches run after pnpm build, targeting dist/:
-apply_patch "notch-fix.js"
-apply_patch "capacitor-browser.js"
-apply_patch "champion-select-c-button.js"
-#apply_patch "landscape-canvas-fit.js"
+# ── Mobile (iOS + Android) ────────────────────────────────────────────────────
+if [[ "$PLATFORM" == "mobile" || "$PLATFORM" == "android" ]]; then
 
-echo "All post-build patches applied successfully."
+  apply_patch "notch-fix.js"               mobile
+  apply_patch "capacitor-browser.js"       mobile
+  apply_patch "champion-select-c-button.js" mobile
+  apply_patch "landscape-canvas-fit.js"    mobile
+
+fi
+
+echo "All post-build patches applied successfully (platform: $PLATFORM)."

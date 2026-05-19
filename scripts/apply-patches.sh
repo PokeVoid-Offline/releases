@@ -1,42 +1,35 @@
 #!/bin/bash
 set -e
+# apply-patches.sh — pre-build patches
+#
+# Usage:
+#   ./apply-patches.sh            # all platforms (default)
+#   ./apply-patches.sh mobile     # all + mobile (iOS + Android)
+#   ./apply-patches.sh android    # all + mobile + android
+#   ./apply-patches.sh appimage   # all + desktop
+#   ./apply-patches.sh exe        # all + desktop
 
-SCRIPT_DIR="$(dirname "$0")"
-PATCHES_DIR="$SCRIPT_DIR/../patches"
-TARGET_DIR="pokevoid-src"
+PLATFORM="${1:-all}"
 
-apply_patch() {
-  local file="$1"
-  local full_path="$PATCHES_DIR/$file"
-  echo "Applying: $file"
-  if [[ "$file" == *.patch ]]; then
-    git -C "$TARGET_DIR" apply "$full_path"
-  elif [[ "$file" == *.js ]]; then
-    node "$full_path"
-  else
-    echo "Unknown file type: $file"
-    exit 1
-  fi
-  echo "Applied: $file"
-}
+source "$(dirname "$0")/patch-lib.sh"
 
-apply_submodule_patch() {
-  local file="$1"
-  local submodule="$2"
-  local full_path="$PATCHES_DIR/$file"
-  echo "Applying: $file to $TARGET_DIR/$submodule"
-  git -C "$TARGET_DIR/$submodule" apply "$full_path"
-  echo "Applied: $file"
-}
+# ── All platforms ─────────────────────────────────────────────────────────────
 
-# Add patch files here:
-# apply_patch "01-fix-something.patch"
+apply_patch "remove-pokesave.js"  all
 
-# CRITICAL: Remove Capacitor Updater for offline builds
-#apply_patch "remove-capacitor-updater.js"
+# ── Mobile (iOS + Android) ────────────────────────────────────────────────────
+if [[ "$PLATFORM" == "mobile" || "$PLATFORM" == "android" ]]; then
 
-apply_patch "noZoom.js"
-apply_patch "remove-pokesave.js"
-apply_patch "pokevoid-capacitor-export-fix.js"
+  apply_patch "noZoom.js"                        mobile
+  apply_patch "pokevoid-capacitor-export-fix.js" mobile
 
-echo "All patches applied successfully."
+fi
+
+# ── Android only ──────────────────────────────────────────────────────────────
+if [[ "$PLATFORM" == "android" ]]; then
+
+  # android-specific patches go here
+
+fi
+
+echo "All patches applied successfully (platform: $PLATFORM)."
