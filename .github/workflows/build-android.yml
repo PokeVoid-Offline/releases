@@ -1,0 +1,187 @@
+name: Build PokeVoid APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'Build number (leave blank to use this workflow run number)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Clone PokeVoid fork
+        run: git clone --recurse-submodules --depth 1 --branch main https://github.com/smittynugget/pokevoid.git pokevoid-src
+
+      - name: Get PokeVoid version
+        id: pokevoid_version
+        run: |
+          VERSION=2.4.3
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Apply patches
+        run: bash ${{ github.workspace }}/scripts/apply-patches.sh
+
+      - name: Remove CapacitorUpdater import from main.ts
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = 'pokevoid-src/src/main.ts';
+            let content = fs.readFileSync(path, 'utf8');
+            content = content.replace(
+              /(void boot\(\);)[\s\S]*?(export default game;)/,
+              '\$1\n\n\$2'
+            );
+            fs.writeFileSync(path, content);
+          "
+
+      - name: Install PokeVoid dependencies
+        working-directory: pokevoid-src
+        run: pnpm install
+
+      - name: Build PokeVoid
+        working-directory: pokevoid-src
+        env:
+          VITE_BYPASS_LOGIN: '1'
+        run: pnpm build --mode app
+
+      - name: Apply post-build patches
+        run: bash ${{ github.workspace }}/scripts/apply-post-build-patches.sh
+
+      - name: Install Capacitor
+        working-directory: pokevoid-src
+        run: |
+          pnpm add @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share @capacitor/browser
+
+      - name: Configure Capacitor
+        working-directory: pokevoid-src
+        run: |
+          cat > capacitor.config.json << 'CAPEOF'
+          {
+            "appId": "xyz.scooom.pv",
+            "appName": "PokeVoid Offline",
+            "webDir": "dist",
+            "android": {
+              "allowMixedContent": true,
+              "backgroundColor": "#000000",
+              "orientation": "landscape"
+            }
+          }
+          CAPEOF
+
+      - name: Add Android platform
+        working-directory: pokevoid-src
+        run: npx cap add android
+
+      - name: Sync Capacitor
+        working-directory: pokevoid-src
+        run: npx cap sync android
+
+      - name: Fix Android package ID and permissions
+        working-directory: pokevoid-src
+        run: |
+          OLD_PKG_PATH=$(find android/app/src/main/java -name "MainActivity.java" | head -1 | xargs dirname)
+          NEW_PKG_PATH="android/app/src/main/java/xyz/scooom/pv"
+          mkdir -p "$NEW_PKG_PATH"
+          cp "$OLD_PKG_PATH/MainActivity.java" "$NEW_PKG_PATH/MainActivity.java"
+          rm -rf android/app/src/main/java/com
+
+          sed -i 's/^package .*/package xyz.scooom.pv;/' "$NEW_PKG_PATH/MainActivity.java"
+          sed -i 's/namespace = "[^"]*"/namespace = "xyz.scooom.pv"/' android/app/build.gradle
+          sed -i 's/applicationId "[^"]*"/applicationId "xyz.scooom.pv"/' android/app/build.gradle
+
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          grep -q "WRITE_EXTERNAL_STORAGE" $MANIFEST || \
+            sed -i 's|<application|<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <application|' $MANIFEST
+          echo "Contents of ${MANIFEST}"
+          cat $MANIFEST
+
+      - name: Set version in build.gradle
+        working-directory: pokevoid-src/android/app
+        run: |
+          BUILD_NUM=${{ inputs.build_number || github.run_number }}
+          VERSION="${{ steps.pokevoid_version.outputs.version }}"
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+
+          VERSION_CODE=$(( MAJOR * 10000000 + MINOR * 100000 + PATCH * 1000 + BUILD_NUM ))
+          VERSION_NAME="${VERSION}.${BUILD_NUM}"
+
+          sed -i "s/versionCode .*/versionCode $VERSION_CODE/" build.gradle
+          sed -i "s/versionName .*/versionName \"$VERSION_NAME\"/" build.gradle
+
+      - name: Copy app icon
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y imagemagick
+
+          for density in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            dir="${density%%:*}"
+            size="${density##*:}"
+            mkdir -p pokevoid-src/android/app/src/main/res/mipmap-${dir}
+
+            convert appIconAndroid.png -resize ${size}x${size} \
+              pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher.png
+
+            padded_size=$((size * 100 / 82))
+            convert appIconAndroid.png \
+              -resize ${size}x${size} \
+              -gravity center \
+              -background "#1a0030" \
+              -extent ${padded_size}x${padded_size} \
+              pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher_round.png
+
+            fgsize=$((size * 108 / 48))
+            artsize=$((size * 72 / 48))
+            convert appIconAndroid.png \
+              -resize ${artsize}x${artsize} \
+              -gravity center \
+              -background "#1a0030" \
+              -extent ${fgsize}x${fgsize} \
+              pokevoid-src/android/app/src/main/res/mipmap-${dir}/ic_launcher_foreground.png
+          done
+
+          rm -rf pokevoid-src/android/app/src/main/res/mipmap-anydpi-v26
+
+      - name: Make gradlew executable
+        working-directory: pokevoid-src/android
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        working-directory: pokevoid-src/android
+        run: ./gradlew assembleDebug
+
+      - name: Rename resulting APK
+        run: |
+          cp pokevoid-src/android/app/build/outputs/apk/debug/app-debug.apk PokeVoidOffline.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PokeVoidOffline-APK
+          path: PokeVoidOffline.apk
+          retention-days: 30

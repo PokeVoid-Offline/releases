@@ -26,7 +26,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          gh workflow run build.yml --ref "${{ github.ref_name }}"
+          gh workflow run build-ios.yml --ref "${{ github.ref_name }}" -f build_number=${{ github.run_number }}
           echo "triggered_after=$TS" >> $GITHUB_OUTPUT
 
       - name: Trigger Android build
@@ -35,7 +35,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          gh workflow run build.yml --ref "${{ github.ref_name }}"
+          gh workflow run build-android.yml --ref "${{ github.ref_name }}" -f build_number=${{ github.run_number }}
           echo "triggered_after=$TS" >> $GITHUB_OUTPUT
 
       - name: Trigger AppImage build
@@ -95,8 +95,8 @@ jobs:
             return 1
           }
 
-          locate_run "build.yml" "$IOS_AFTER" "iOS" /tmp/ios_run_id
-          locate_run "build.yml" "$ANDROID_AFTER" "Android" /tmp/android_run_id
+          locate_run "build-ios.yml" "$IOS_AFTER" "iOS" /tmp/ios_run_id
+          locate_run "build-android.yml" "$ANDROID_AFTER" "Android" /tmp/android_run_id
           locate_run "build-appimage.yml" "$APPIMAGE_AFTER" "AppImage" /tmp/appimage_run_id
           locate_run "build-exe.yml" "$WINDOWS_AFTER" "Windows" /tmp/windows_run_id
 
@@ -249,13 +249,23 @@ jobs:
           mv windows-out/PokeVoidOffline.exe ./PokeVoidOffline.exe
 
       # -----------------------------------------------------------------------
+      # Read the version string from version.txt bundled in the IPA artifact.
+      # -----------------------------------------------------------------------
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(cat ipa-out/version.txt)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Found Version: ${VERSION}"
+
+      # -----------------------------------------------------------------------
       # Publish the combined GitHub release.
       # -----------------------------------------------------------------------
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.4.3-${{ github.run_number }}
-          name: PokeVoid Offline v2.4.3 (Build ${{ github.run_number }})
+          tag_name: v${{ steps.version.outputs.version }}-${{ github.run_number }}
+          name: PokeVoid Offline v${{ steps.version.outputs.version }} (Build ${{ github.run_number }})
           prerelease: true
           body: |
             ## PokeVoid Offline v2.4.3
@@ -305,6 +315,7 @@ jobs:
             done
           }
 
-          cancel_active_runs "build.yml" "iOS/Android"
+          cancel_active_runs "build-ios.yml" "iOS"
+          cancel_active_runs "build-android.yml" "Android"
           cancel_active_runs "build-appimage.yml" "AppImage"
           cancel_active_runs "build-exe.yml" "Windows"
