@@ -2,7 +2,7 @@ const fs = require('fs');
 
 // Patch index.html - disable viewport scaling
 const indexPath = 'pokevoid-src/index.html';
-let index = fs.readFileSync(indexPath, 'utf8');
+let index = fs.readFileSync(indexPath, 'utf8').replace(/\r\n/g, '\n');
 
 const target = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
 if (!index.includes(target)) {

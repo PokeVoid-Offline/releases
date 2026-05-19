@@ -34,7 +34,7 @@ if (!fs.existsSync(TARGET)) {
   process.exit(1);
 }
 
-let src = fs.readFileSync(TARGET, "utf8");
+let src = fs.readFileSync(TARGET, 'utf8').replace(/\r\n/g, '\n');
 
 if (src.includes('id="capacitor-notch-fix"')) {
   console.log("Notch fix already present, skipping.");

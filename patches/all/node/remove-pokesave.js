@@ -1,7 +1,7 @@
 const fs = require('fs');
 
 const filePath = 'pokevoid-src/package.json';
-let content = fs.readFileSync(filePath, 'utf8');
+let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
 
 // Remove the "npm run remove-pokesave" call from the build scripts so that
 // passing --mode app doesn't cause the extra args to leak into the shell command.

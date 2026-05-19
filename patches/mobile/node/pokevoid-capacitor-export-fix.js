@@ -37,7 +37,7 @@ if (!fs.existsSync(TARGET)) {
   process.exit(1);
 }
 
-let src = fs.readFileSync(TARGET, "utf8");
+let src = fs.readFileSync(TARGET, 'utf8').replace(/\r\n/g, '\n');
 
 const ORIGINAL = `                const blob = new Blob([encryptedData.toString()], { type: "text/json" });
                 const link = document.createElement("a");

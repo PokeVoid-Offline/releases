@@ -43,7 +43,7 @@ if (!fs.existsSync(TARGET)) {
   process.exit(1);
 }
 
-let src = fs.readFileSync(TARGET, "utf8");
+let src = fs.readFileSync(TARGET, 'utf8').replace(/\r\n/g, '\n');
 
 const MARKER = "capacitor-canvas-fit-fix";
 

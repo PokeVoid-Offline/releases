@@ -29,7 +29,7 @@ if (!fs.existsSync(TARGET)) {
   process.exit(1);
 }
 
-let src = fs.readFileSync(TARGET, "utf8");
+let src = fs.readFileSync(TARGET, 'utf8').replace(/\r\n/g, '\n');
 
 if (src.includes("capacitor-browser-fix")) {
   console.log("Capacitor browser fix already present, skipping.");
