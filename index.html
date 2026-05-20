@@ -393,6 +393,30 @@
         <li>Make it executable: <code>chmod +x PokeVoidOffline.AppImage</code></li>
         <li>Run it: <code>./PokeVoidOffline.AppImage</code></li>
       </ol>
+
+      <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+        <div style="font-size:13px; font-weight:700; color:var(--accent2); margin-bottom:10px; font-family:var(--font-mono); letter-spacing:0.08em; text-transform:uppercase;">⚠️ Sandbox Error Fix</div>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:12px; line-height:1.7;">
+          If you see a fatal error mentioning <code>chrome-sandbox</code> not being owned by root or missing mode <code>4755</code>, your system is blocking the Chromium sandbox. Two fixes:
+        </p>
+
+        <div style="font-size:13px; font-weight:600; color:var(--text); margin-bottom:6px;">Option A — Quick fix</div>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:8px; line-height:1.7;">Pass <code>--no-sandbox</code> when launching:</p>
+        <code style="display:block; padding:8px 12px; font-size:12px; line-height:1.6; white-space:pre-wrap; border-radius:var(--radius-md);">./PokeVoidOffline.AppImage --no-sandbox</code>
+
+        <div style="font-size:13px; font-weight:600; color:var(--text); margin:14px 0 6px;">Option B — AppArmor profile (recommended)</div>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:8px; line-height:1.7;">On Ubuntu 23.10+ and similar distros, create an AppArmor profile to allow user namespaces without disabling sandboxing globally:</p>
+        <code style="display:block; padding:8px 12px; font-size:12px; line-height:1.8; white-space:pre-wrap; border-radius:var(--radius-md);">sudo tee /etc/apparmor.d/pokevoid-offline &lt;&lt;'EOF'
+abi &lt;abi/4.0&gt;,
+include &lt;tunables/global&gt;
+
+profile pokevoid-offline /path/to/PokeVoidOffline.AppImage flags=(unconfined) {
+  userns,
+}
+EOF
+sudo apparmor_parser -r /etc/apparmor.d/pokevoid-offline</code>
+        <p style="font-size:12px; color:var(--dim); margin-top:8px; font-style:italic; line-height:1.6;">Replace <code>/path/to/PokeVoidOffline.AppImage</code> with the actual path. After running, launch normally without <code>--no-sandbox</code>.</p>
+      </div>
     </div>
 
     <div class="footer">
