@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut } = require('electron');
+const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
 let mainWindow;
@@ -15,17 +15,6 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
-  mainWindow.setMenuBarVisibility(false);
-
-  globalShortcut.register('F11', () => {
-    mainWindow.setFullScreen(!mainWindow.isFullScreen());
-  });
-
-  globalShortcut.register('Escape', () => {
-    if (mainWindow.isFullScreen()) {
-      mainWindow.setFullScreen(false);
-    }
-  });
 
   if (process.env.DEBUG) {
     mainWindow.webContents.openDevTools();
@@ -34,7 +23,6 @@ function createWindow() {
 
 app.on('ready', createWindow);
 app.on('window-all-closed', () => {
-  globalShortcut.unregisterAll();
   if (process.platform !== 'darwin') app.quit();
 });
 app.on('activate', () => {
