@@ -27,11 +27,8 @@ if [[ "$PLATFORM" == "mobile" || "$PLATFORM" == "android" ]]; then
 fi
 
 # ── Android only ──────────────────────────────────────────────────────────────
-if [[ "$PLATFORM" == "android" ]]; then
-
-  apply_patch "android-manifest-keyboard-fix.js" android
-
-fi
+# (android-manifest-keyboard-fix.js runs as an explicit workflow step after
+#  cap sync, when AndroidManifest.xml is available)
 
 # ── Desktop (AppImage + EXE) ──────────────────────────────────────────────────
 if [[ "$PLATFORM" == "appimage" || "$PLATFORM" == "exe" ]]; then
