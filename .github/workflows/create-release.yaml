@@ -21,8 +21,8 @@ jobs:
       # This avoids any dependency on workflow inputs being queryable via API.
       # -----------------------------------------------------------------------
       - name: Compute build number
-        id: build_number
-        run: echo "value=$(( ${{ github.run_number }} + 100 ))" >> $GITHUB_OUTPUT
+        id: build
+        run: echo "number=$(( ${{ github.run_number }} + 100 ))" >> $GITHUB_OUTPUT
 
       - name: Trigger iOS build
         id: trigger_ios
@@ -30,7 +30,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          gh workflow run build-ios.yml --ref "${{ github.ref_name }}" -f build_number=${{ steps.build_number.outputs.value }}
+          gh workflow run build-ios.yml --ref "${{ github.ref_name }}" -f build_number=${{ steps.build.outputs.number }}
           echo "triggered_after=$TS" >> $GITHUB_OUTPUT
 
       - name: Trigger Android build
@@ -39,7 +39,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          gh workflow run build-android.yml --ref "${{ github.ref_name }}" -f build_number=${{ steps.build_number.outputs.value }}
+          gh workflow run build-android.yml --ref "${{ github.ref_name }}" -f build_number=${{ steps.build.outputs.number }}
           echo "triggered_after=$TS" >> $GITHUB_OUTPUT
 
       - name: Trigger AppImage build
@@ -48,7 +48,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          gh workflow run build-appimage.yml --ref "${{ github.ref_name }}" -f build_number=${{ steps.build_number.outputs.value }}
+          gh workflow run build-appimage.yml --ref "${{ github.ref_name }}" -f build_number=${{ steps.build.outputs.number }}
           echo "triggered_after=$TS" >> $GITHUB_OUTPUT
 
       - name: Trigger Windows build
@@ -57,7 +57,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          gh workflow run build-exe.yml --ref "${{ github.ref_name }}" -f build_number=${{ steps.build_number.outputs.value }}
+          gh workflow run build-exe.yml --ref "${{ github.ref_name }}" -f build_number=${{ steps.build.outputs.number }}
           echo "triggered_after=$TS" >> $GITHUB_OUTPUT
 
       # -----------------------------------------------------------------------
@@ -268,8 +268,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}-${{ steps.build_number.outputs.value }}
-          name: PokeVoid Offline v${{ steps.version.outputs.version }} (Build ${{ steps.build_number.outputs.value }})
+          tag_name: v${{ steps.version.outputs.version }}-${{ steps.build.outputs.number }}
+          name: PokeVoid Offline v${{ steps.version.outputs.version }} (Build ${{ steps.build.outputs.number }})
           prerelease: true
           body: |
             ## PokeVoid Offline v2.4.3

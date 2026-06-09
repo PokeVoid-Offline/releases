@@ -98,22 +98,14 @@ jobs:
         run: |
           DEST=$(find android/app/src/main/java -name "MainActivity.java" | head -n 1)
           cp ${{ github.workspace }}/configs/android/java/MainActivity.java "$DEST"
-          # Update package declaration to match the destination package path
-          PKG_PATH=$(dirname "$DEST" | sed 's|.*/java/||' | tr '/' '.')
-          sed -i "s/^package .*/package $PKG_PATH;/" "$DEST"
 
-      - name: Fix Android package ID and permissions
+      - name: Patch AndroidManifest to prevent keyboard resize
+        working-directory: pokevoid-src
+        run: node ${{ github.workspace }}/patches/android/node/android-manifest-keyboard-fix.js
+
+      - name: Fix Android permissions
         working-directory: pokevoid-src
         run: |
-          OLD_PKG_PATH=$(find android/app/src/main/java -name "MainActivity.java" | head -1 | xargs dirname)
-          NEW_PKG_PATH="android/app/src/main/java/xyz/scooom/pv"
-          mkdir -p "$NEW_PKG_PATH"
-          cp "$OLD_PKG_PATH/MainActivity.java" "$NEW_PKG_PATH/MainActivity.java"
-          rm -rf android/app/src/main/java/com
-
-          sed -i 's/namespace = "[^"]*"/namespace = "xyz.scooom.pv"/' android/app/build.gradle
-          sed -i 's/applicationId "[^"]*"/applicationId "xyz.scooom.pv"/' android/app/build.gradle
-
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           grep -q "WRITE_EXTERNAL_STORAGE" $MANIFEST || \
             sed -i 's|<application|<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <application|' $MANIFEST

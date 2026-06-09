@@ -27,9 +27,11 @@ if [[ "$PLATFORM" == "mobile" || "$PLATFORM" == "android" ]]; then
 fi
 
 # ── Android only ──────────────────────────────────────────────────────────────
-# if [[ "$PLATFORM" == "android" ]]; then
-#   apply_patch "example.js" android
-# fi
+if [[ "$PLATFORM" == "android" ]]; then
+
+  apply_patch "android-manifest-keyboard-fix.js" android
+
+fi
 
 # ── Desktop (AppImage + EXE) ──────────────────────────────────────────────────
 if [[ "$PLATFORM" == "appimage" || "$PLATFORM" == "exe" ]]; then

@@ -4,10 +4,9 @@
   "webDir": "dist",
   "android": {
     "backgroundColor": "#000000",
-    "allowMixedContent": true,
+    "allowMixedContent": false,
     "captureInput": true,
-    "webContentsDebuggingEnabled": false,
-    "orientation": "landscape"
+    "webContentsDebuggingEnabled": false
   },
   "plugins": {
     "StatusBar": {
