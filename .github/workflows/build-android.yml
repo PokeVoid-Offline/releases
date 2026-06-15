@@ -85,6 +85,10 @@ jobs:
         working-directory: pokevoid-src
         run: cp ${{ github.workspace }}/configs/android/capacitor/capacitor.config.json capacitor.config.json
 
+      - name: Remove upstream Capacitor config
+        working-directory: pokevoid-src
+        run: rm -f capacitor.config.ts
+
       - name: Add Android platform
         working-directory: pokevoid-src
         run: npx cap add android
