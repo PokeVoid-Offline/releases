@@ -59,6 +59,8 @@ jobs:
 
       - name: Install PokeVoid dependencies
         working-directory: pokevoid-src
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
         run: pnpm install --config.dangerously-allow-all-builds=true
 
       - name: Build PokeVoid
